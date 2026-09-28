@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>QuizJang</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://sad.adsgram.ai/js/sad.min.js"></script>
 <style>
   :root{
     --bg:#17212b; --card:#1f2b38; --text:#e7ecf0; --muted:#8fa3b3;
@@ -115,6 +116,17 @@
   <div class="options" id="options-wrap"></div>
 </div>
 
+<!-- Экран: предложение посмотреть рекламу за бонус к результату -->
+<div class="screen hidden" id="screen-ad-offer">
+  <div class="topbar"><div class="brand">Quiz<span>Jang</span></div></div>
+  <div class="center">
+    <div class="title" data-t="ad_offer_title">Ещё +40 очков?</div>
+    <div class="subtitle" data-t="ad_offer_sub">Посмотри короткую рекламу — очки добавятся к результату</div>
+    <button class="btn btn-primary" id="btn-watch-ad" data-t="btn_watch_ad">🎬 Смотреть рекламу (+40)</button>
+    <button class="btn btn-secondary" id="btn-skip-ad" data-t="btn_skip_ad">Пропустить</button>
+  </div>
+</div>
+
 <!-- Финальный экран: соло-результат (стал вызовом) -->
 <div class="screen hidden" id="screen-result">
   <div class="topbar"><div class="brand">Quiz<span>Jang</span></div></div>
@@ -158,7 +170,9 @@ const I18N = {
     result_label:"Твой результат", stat_correct:"верно", stat_time:"среднее время",
     btn_challenge:"Вызвать друга", btn_again:"Сыграть снова",
     vs_banner:(name,score)=>`<b>${name}</b> набрал ${score} очков в дуэли. Сможешь больше?`,
-    win:"Ты победил! 🏆", lose:"В этот раз соперник сильнее", draw:"Ничья!"
+    win:"Ты победил! 🏆", lose:"В этот раз соперник сильнее", draw:"Ничья!",
+    ad_offer_title:"Ещё +40 очков?", ad_offer_sub:"Посмотри короткую рекламу — очки добавятся к результату",
+    btn_watch_ad:"🎬 Смотреть рекламу (+40)", btn_skip_ad:"Пропустить"
   },
   uz: {
     start_title:"Janga tayyormisan?", start_sub:"5 ta o'rtacha savol bilan qizib olasan, keyin — faqat qiyinlari. Kim tezroq va aniqroq — g'olib o'sha.",
@@ -166,7 +180,9 @@ const I18N = {
     result_label:"Natijang", stat_correct:"to'g'ri", stat_time:"o'rtacha vaqt",
     btn_challenge:"Do'stni chaqir", btn_again:"Yana o'ynash",
     vs_banner:(name,score)=>`<b>${name}</b> jangda ${score} ball to'pladi. Sen ko'proq to'play olasanmi?`,
-    win:"Sen g'alaba qozonding! 🏆", lose:"Bu safar raqib kuchliroq", draw:"Durrang!"
+    win:"Sen g'alaba qozonding! 🏆", lose:"Bu safar raqib kuchliroq", draw:"Durrang!",
+    ad_offer_title:"Yana +40 ball?", ad_offer_sub:"Qisqa reklama ko'r — ball natijangga qo'shiladi",
+    btn_watch_ad:"🎬 Reklama ko'rish (+40)", btn_skip_ad:"O'tkazib yuborish"
   }
 };
 let lang = "ru";
@@ -224,6 +240,17 @@ let answerTimes = [];
 let curDifficulty = "medium";
 let timerInterval = null;
 const QUESTION_SECONDS = 10;
+
+// ---- Реклама за бонус (Adsgram) ----
+// Block ID получишь на partner.adsgram.ai после создания Ad unit типа "Reward" — вставь его сюда вместо заглушки.
+const ADSGRAM_BLOCK_ID = "REPLACE_WITH_YOUR_BLOCK_ID";
+const AD_BONUS = 40;
+let AdController = null;
+try {
+  if (window.Adsgram && ADSGRAM_BLOCK_ID !== "REPLACE_WITH_YOUR_BLOCK_ID") {
+    AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+  }
+} catch(e) { console.warn("Adsgram init failed", e); }
 
 async function loadQuestions(){
   const res = await fetch("questions_bank.json");
@@ -310,9 +337,29 @@ function selectAnswer(choiceIdx){
   setTimeout(()=>{
     idx++;
     if (idx < sessionQuestions.length) renderQuestion();
-    else finishGame();
+    else showAdOfferOrFinish();
   }, 900);
 }
+
+function showAdOfferOrFinish(){
+  if (!AdController) { finishGame(); return; } // реклама не настроена — сразу к результату
+  document.getElementById("screen-quiz").classList.add("hidden");
+  document.getElementById("screen-ad-offer").classList.remove("hidden");
+}
+
+function proceedFromAdOffer(){
+  document.getElementById("screen-ad-offer").classList.add("hidden");
+  finishGame();
+}
+
+document.getElementById("btn-watch-ad").addEventListener("click", ()=>{
+  const btn = document.getElementById("btn-watch-ad");
+  btn.disabled = true;
+  AdController.show()
+    .then(()=>{ score += AD_BONUS; proceedFromAdOffer(); })
+    .catch(()=>{ proceedFromAdOffer(); }); // реклама не загрузилась/пропущена — идём к результату без бонуса
+});
+document.getElementById("btn-skip-ad").addEventListener("click", proceedFromAdOffer);
 
 async function finishGame(){
   document.getElementById("screen-quiz").classList.add("hidden");
