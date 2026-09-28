@@ -1,0 +1,9 @@
+{
+  "name": "quizjang",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QuizJang — 1v1 quiz-duel Telegram Mini App",
+  "dependencies": {
+    "@upstash/redis": "^1.34.3"
+  }
+}

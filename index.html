@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>QuizJang</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg:#17212b; --card:#1f2b38; --text:#e7ecf0; --muted:#8fa3b3;
+    --accent:#4ea3ff; --good:#3ecf8e; --bad:#ff5c6c; --border:#2b3a48;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  .screen{flex:1; display:flex; flex-direction:column; padding:20px 16px; max-width:480px; margin:0 auto; width:100%;}
+  .topbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;}
+  .brand{font-weight:700; font-size:20px; letter-spacing:.3px;}
+  .brand span{color:var(--accent);}
+  .lang-toggle{display:flex; background:var(--card); border-radius:10px; padding:3px; border:1px solid var(--border);}
+  .lang-toggle button{background:none; border:none; color:var(--muted); padding:6px 12px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer;}
+  .lang-toggle button.active{background:var(--accent); color:#fff;}
+
+  .center{flex:1; display:flex; flex-direction:column; justify-content:center; text-align:center;}
+  .title{font-size:26px; font-weight:800; margin-bottom:8px;}
+  .subtitle{color:var(--muted); font-size:15px; margin-bottom:20px; line-height:1.4;}
+  .vs-banner{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:20px; font-size:14px;}
+  .vs-banner b{color:var(--accent);}
+  .btn{
+    display:block; width:100%; padding:15px; border-radius:14px; border:none;
+    font-size:16px; font-weight:700; cursor:pointer; margin-bottom:12px;
+  }
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-secondary{background:var(--card); color:var(--text); border:1px solid var(--border);}
+  .btn:disabled{opacity:.5;}
+
+  .progress-row{display:flex; gap:4px; margin-bottom:18px;}
+  .progress-seg{height:5px; flex:1; border-radius:3px; background:var(--border);}
+  .progress-seg.done{background:var(--good);}
+  .progress-seg.current{background:var(--accent);}
+
+  .timer-wrap{height:6px; background:var(--border); border-radius:3px; margin-bottom:20px; overflow:hidden;}
+  .timer-bar{height:100%; background:var(--accent); width:100%; transition:width .2s linear;}
+
+  .diff-badge{display:inline-block; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; margin-bottom:14px; letter-spacing:.4px;}
+  .diff-badge.medium{background:#3a3320; color:#e0c341;}
+  .diff-badge.hard{background:#3a2020; color:#ff8f8f;}
+
+  .question{font-size:19px; font-weight:700; margin-bottom:22px; line-height:1.35;}
+  .options{display:flex; flex-direction:column; gap:10px;}
+  .option{
+    background:var(--card); border:1px solid var(--border); color:var(--text);
+    padding:14px 16px; border-radius:12px; font-size:15px; text-align:left; cursor:pointer;
+  }
+  .option.correct{background:rgba(62,207,142,.18); border-color:var(--good);}
+  .option.wrong{background:rgba(255,92,108,.18); border-color:var(--bad);}
+
+  .score-big{font-size:52px; font-weight:800; margin:10px 0;}
+  .score-label{color:var(--muted); font-size:14px; margin-bottom:28px;}
+  .stat-row{display:flex; justify-content:space-around; margin-bottom:28px;}
+  .stat{text-align:center;}
+  .stat .num{font-size:22px; font-weight:800;}
+  .stat .lbl{font-size:12px; color:var(--muted);}
+
+  .vs-row{display:flex; align-items:center; justify-content:center; gap:18px; margin-bottom:24px;}
+  .vs-col{text-align:center; flex:1;}
+  .vs-col .name{font-size:13px; color:var(--muted); margin-bottom:4px;}
+  .vs-col .num{font-size:34px; font-weight:800;}
+  .vs-col.win .num{color:var(--good);}
+  .vs-sep{font-size:13px; color:var(--muted); font-weight:700;}
+  .winner-banner{font-size:16px; font-weight:800; margin-bottom:22px;}
+  .winner-banner.win{color:var(--good);}
+  .winner-banner.lose{color:var(--bad);}
+
+  .link-box{display:flex; gap:8px; margin-bottom:16px;}
+  .link-box input{flex:1; background:var(--card); border:1px solid var(--border); border-radius:10px; color:var(--muted); padding:10px; font-size:12px;}
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+
+<!-- Стартовый экран -->
+<div class="screen" id="screen-start">
+  <div class="topbar">
+    <div class="brand">Quiz<span>Jang</span></div>
+    <div class="lang-toggle">
+      <button data-lang="ru" class="active">RU</button>
+      <button data-lang="uz">UZ</button>
+    </div>
+  </div>
+  <div class="center">
+    <div class="title" id="start-title" data-t="start_title">Готов к дуэли?</div>
+    <div class="subtitle" id="start-sub" data-t="start_sub">5 вопросов на разогрев, потом — только сложные. Кто быстрее и точнее — тот и победил.</div>
+    <div class="vs-banner hidden" id="vs-banner"></div>
+    <button class="btn btn-primary" id="btn-play" data-t="btn_play">Начать игру</button>
+  </div>
+</div>
+
+<!-- Экран вопроса -->
+<div class="screen hidden" id="screen-quiz">
+  <div class="topbar">
+    <div class="brand">Quiz<span>Jang</span></div>
+    <div class="lang-toggle">
+      <button data-lang="ru" class="active">RU</button>
+      <button data-lang="uz">UZ</button>
+    </div>
+  </div>
+  <div class="progress-row" id="progress-row"></div>
+  <div class="timer-wrap"><div class="timer-bar" id="timer-bar"></div></div>
+  <div class="diff-badge medium" id="diff-badge" data-t="diff_medium">СРЕДНИЙ</div>
+  <div class="question" id="question-text">—</div>
+  <div class="options" id="options-wrap"></div>
+</div>
+
+<!-- Финальный экран: соло-результат (стал вызовом) -->
+<div class="screen hidden" id="screen-result">
+  <div class="topbar"><div class="brand">Quiz<span>Jang</span></div></div>
+  <div class="center">
+    <div class="score-label" data-t="result_label">Твой результат</div>
+    <div class="score-big" id="final-score">0</div>
+    <div class="stat-row">
+      <div class="stat"><div class="num" id="stat-correct">0</div><div class="lbl" data-t="stat_correct">верно</div></div>
+      <div class="stat"><div class="num" id="stat-time">0с</div><div class="lbl" data-t="stat_time">среднее время</div></div>
+    </div>
+    <div class="link-box hidden" id="link-box">
+      <input type="text" id="share-link" readonly>
+    </div>
+    <button class="btn btn-primary" id="btn-challenge" data-t="btn_challenge">Вызвать друга</button>
+    <button class="btn btn-secondary" id="btn-again" data-t="btn_again">Сыграть снова</button>
+  </div>
+</div>
+
+<!-- Финальный экран: сравнение в дуэли -->
+<div class="screen hidden" id="screen-vs-result">
+  <div class="topbar"><div class="brand">Quiz<span>Jang</span></div></div>
+  <div class="center">
+    <div class="winner-banner" id="winner-banner">—</div>
+    <div class="vs-row">
+      <div class="vs-col" id="vs-col-a"><div class="name" id="vs-name-a">—</div><div class="num" id="vs-score-a">0</div></div>
+      <div class="vs-sep">VS</div>
+      <div class="vs-col" id="vs-col-b"><div class="name" id="vs-name-b">—</div><div class="num" id="vs-score-b">0</div></div>
+    </div>
+    <button class="btn btn-primary" id="btn-rematch" data-t="btn_again">Сыграть снова</button>
+  </div>
+</div>
+
+<script>
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+const I18N = {
+  ru: {
+    start_title:"Готов к дуэли?", start_sub:"5 вопросов на разогрев, потом — только сложные. Кто быстрее и точнее — тот и победил.",
+    btn_play:"Начать игру", diff_medium:"СРЕДНИЙ", diff_hard:"СЛОЖНЫЙ",
+    result_label:"Твой результат", stat_correct:"верно", stat_time:"среднее время",
+    btn_challenge:"Вызвать друга", btn_again:"Сыграть снова",
+    vs_banner:(name,score)=>`<b>${name}</b> набрал ${score} очков в дуэли. Сможешь больше?`,
+    win:"Ты победил! 🏆", lose:"В этот раз соперник сильнее", draw:"Ничья!"
+  },
+  uz: {
+    start_title:"Janga tayyormisan?", start_sub:"5 ta o'rtacha savol bilan qizib olasan, keyin — faqat qiyinlari. Kim tezroq va aniqroq — g'olib o'sha.",
+    btn_play:"O'yinni boshlash", diff_medium:"O'RTACHA", diff_hard:"QIYIN",
+    result_label:"Natijang", stat_correct:"to'g'ri", stat_time:"o'rtacha vaqt",
+    btn_challenge:"Do'stni chaqir", btn_again:"Yana o'ynash",
+    vs_banner:(name,score)=>`<b>${name}</b> jangda ${score} ball to'pladi. Sen ko'proq to'play olasanmi?`,
+    win:"Sen g'alaba qozonding! 🏆", lose:"Bu safar raqib kuchliroq", draw:"Durrang!"
+  }
+};
+let lang = "ru";
+
+// ---- Игрок и режим (соло-создание вызова / присоединение к чужому) ----
+function getPlayerId(){
+  if (tg?.initDataUnsafe?.user?.id) return "tg_" + tg.initDataUnsafe.user.id;
+  try {
+    let id = localStorage.getItem("qj_player_id");
+    if (!id){ id = "web_" + Math.random().toString(36).slice(2); localStorage.setItem("qj_player_id", id); }
+    return id;
+  } catch(e){ return "web_" + Math.random().toString(36).slice(2); }
+}
+function getPlayerName(){
+  return tg?.initDataUnsafe?.user?.first_name || "Игрок";
+}
+function getDuelParam(){
+  const startParam = tg?.initDataUnsafe?.start_param;
+  if (startParam && startParam.startsWith("duel_")) return startParam.slice(5);
+  const url = new URL(window.location.href);
+  return url.searchParams.get("duel");
+}
+
+const PLAYER_ID = getPlayerId();
+const PLAYER_NAME = getPlayerName();
+const JOIN_DUEL_ID = getDuelParam();
+let joinedDuelInfo = null; // заполняется, если открыли по ссылке-вызову
+
+function applyI18n(){
+  document.querySelectorAll("[data-t]").forEach(el=>{
+    const key = el.getAttribute("data-t");
+    if (I18N[lang][key]) el.textContent = I18N[lang][key];
+  });
+  document.getElementById("diff-badge").textContent = curDifficulty === "hard" ? I18N[lang].diff_hard : I18N[lang].diff_medium;
+  if (joinedDuelInfo) {
+    document.getElementById("vs-banner").innerHTML = I18N[lang].vs_banner(joinedDuelInfo.playerA.name, joinedDuelInfo.playerA.score);
+  }
+}
+
+document.querySelectorAll(".lang-toggle button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    lang = btn.getAttribute("data-lang");
+    document.querySelectorAll(".lang-toggle button").forEach(b=>b.classList.toggle("active", b.getAttribute("data-lang")===lang));
+    applyI18n();
+    if (!document.getElementById("screen-quiz").classList.contains("hidden")) renderQuestion();
+  });
+});
+
+let ALL_QUESTIONS = [];
+let sessionQuestions = [];
+let idx = 0;
+let score = 0;
+let correctCount = 0;
+let answerTimes = [];
+let curDifficulty = "medium";
+let timerInterval = null;
+const QUESTION_SECONDS = 10;
+
+async function loadQuestions(){
+  const res = await fetch("questions_bank.json");
+  const data = await res.json();
+  ALL_QUESTIONS = data.questions;
+}
+
+function buildRandomSession(){
+  const medium = ALL_QUESTIONS.filter(q=>q.difficulty==="medium");
+  const hard = ALL_QUESTIONS.filter(q=>q.difficulty==="hard");
+  shuffle(medium); shuffle(hard);
+  sessionQuestions = medium.slice(0,5).concat(hard.slice(0,5));
+}
+function buildSessionFromIds(ids){
+  const byId = new Map(ALL_QUESTIONS.map(q=>[q.id,q]));
+  sessionQuestions = ids.map(id=>byId.get(id));
+}
+function shuffle(arr){ for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } }
+
+function renderProgress(){
+  const row = document.getElementById("progress-row");
+  row.innerHTML = "";
+  sessionQuestions.forEach((_,i)=>{
+    const seg = document.createElement("div");
+    seg.className = "progress-seg" + (i<idx ? " done" : (i===idx ? " current" : ""));
+    row.appendChild(seg);
+  });
+}
+
+function renderQuestion(){
+  const q = sessionQuestions[idx];
+  curDifficulty = q.difficulty;
+  document.getElementById("diff-badge").className = "diff-badge " + q.difficulty;
+  document.getElementById("diff-badge").textContent = q.difficulty === "hard" ? I18N[lang].diff_hard : I18N[lang].diff_medium;
+  document.getElementById("question-text").textContent = lang === "ru" ? q.q_ru : q.q_uz;
+  renderProgress();
+
+  const wrap = document.getElementById("options-wrap");
+  wrap.innerHTML = "";
+  const opts = lang === "ru" ? q.options_ru : q.options_uz;
+  opts.forEach((optText, i)=>{
+    const b = document.createElement("button");
+    b.className = "option";
+    b.textContent = optText;
+    b.addEventListener("click", ()=>selectAnswer(i));
+    wrap.appendChild(b);
+  });
+
+  startTimer();
+}
+
+let questionStartedAt = 0;
+function startTimer(){
+  questionStartedAt = Date.now();
+  clearInterval(timerInterval);
+  const bar = document.getElementById("timer-bar");
+  bar.style.width = "100%";
+  const total = QUESTION_SECONDS*1000;
+  timerInterval = setInterval(()=>{
+    const elapsed = Date.now()-questionStartedAt;
+    const pct = Math.max(0, 100 - (elapsed/total*100));
+    bar.style.width = pct+"%";
+    if (elapsed >= total){ clearInterval(timerInterval); selectAnswer(-1); }
+  }, 100);
+}
+
+function selectAnswer(choiceIdx){
+  clearInterval(timerInterval);
+  const q = sessionQuestions[idx];
+  const elapsedSec = (Date.now()-questionStartedAt)/1000;
+  answerTimes.push(elapsedSec);
+  const buttons = document.querySelectorAll("#options-wrap .option");
+  buttons.forEach((b,i)=>{
+    b.disabled = true;
+    if (i===q.correct) b.classList.add("correct");
+    else if (i===choiceIdx) b.classList.add("wrong");
+  });
+  if (choiceIdx === q.correct){
+    correctCount++;
+    const speedBonus = Math.max(0, Math.round((QUESTION_SECONDS-elapsedSec)*3));
+    const base = q.difficulty === "hard" ? 100 : 60;
+    score += base + speedBonus;
+  }
+  setTimeout(()=>{
+    idx++;
+    if (idx < sessionQuestions.length) renderQuestion();
+    else finishGame();
+  }, 900);
+}
+
+async function finishGame(){
+  document.getElementById("screen-quiz").classList.add("hidden");
+
+  if (JOIN_DUEL_ID) {
+    // Мы отвечали на чужой вызов — отправляем результат и показываем сравнение
+    const res = await fetch(`/api/duel/${JOIN_DUEL_ID}/complete`, {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ playerId: PLAYER_ID, playerName: PLAYER_NAME, score, correctCount })
+    });
+    const data = await res.json();
+    showVsResult(data);
+  } else {
+    // Мы играли соло — создаём вызов и получаем ссылку для друга
+    const res = await fetch(`/api/duel`, {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({ playerId: PLAYER_ID, playerName: PLAYER_NAME, score, correctCount })
+    });
+    const data = await res.json();
+    showSoloResult(data.duelId);
+  }
+}
+
+function showSoloResult(duelId){
+  document.getElementById("screen-result").classList.remove("hidden");
+  document.getElementById("final-score").textContent = score;
+  document.getElementById("stat-correct").textContent = correctCount + "/" + sessionQuestions.length;
+  const avg = answerTimes.reduce((a,b)=>a+b,0)/answerTimes.length;
+  document.getElementById("stat-time").textContent = avg.toFixed(1)+"с";
+
+  const botUsername = "quizjang_bot";
+  const appLink = `https://t.me/${botUsername}/app?startapp=duel_${duelId}`;
+  document.getElementById("share-link").value = appLink;
+  document.getElementById("link-box").classList.remove("hidden");
+
+  document.getElementById("btn-challenge").onclick = ()=>{
+    const text = lang === "ru" ? `Я набрал ${score} очков в QuizJang! Сможешь больше?` : `Men QuizJang'da ${score} ball to'pladim! Sen ko'proq to'play olasanmi?`;
+    const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(appLink)}&text=${encodeURIComponent(text)}`;
+    if (tg?.openTelegramLink) tg.openTelegramLink(shareUrl);
+    else window.open(shareUrl, "_blank");
+  };
+  applyI18n();
+}
+
+function showVsResult(data){
+  document.getElementById("screen-vs-result").classList.remove("hidden");
+  const meIsA = data.playerA.id === PLAYER_ID;
+  const me = meIsA ? data.playerA : data.playerB;
+  const opp = meIsA ? data.playerB : data.playerA;
+  document.getElementById("vs-name-a").textContent = me.name;
+  document.getElementById("vs-score-a").textContent = me.score;
+  document.getElementById("vs-name-b").textContent = opp.name;
+  document.getElementById("vs-score-b").textContent = opp.score;
+
+  const iWon = (data.winner === "playerA" && meIsA) || (data.winner === "playerB" && !meIsA);
+  const isDraw = data.winner === "draw";
+  const banner = document.getElementById("winner-banner");
+  banner.textContent = isDraw ? I18N[lang].draw : (iWon ? I18N[lang].win : I18N[lang].lose);
+  banner.className = "winner-banner " + (isDraw ? "" : (iWon ? "win" : "lose"));
+  document.getElementById("vs-col-a").classList.toggle("win", iWon && !isDraw);
+  document.getElementById("vs-col-b").classList.toggle("win", !iWon && !isDraw);
+}
+
+document.getElementById("btn-play").addEventListener("click", async ()=>{
+  document.getElementById("screen-start").classList.add("hidden");
+  document.getElementById("screen-quiz").classList.remove("hidden");
+  idx = 0; score = 0; correctCount = 0; answerTimes = [];
+  if (JOIN_DUEL_ID && joinedDuelInfo) buildSessionFromIds(joinedDuelInfo.questionIds);
+  else buildRandomSession();
+  renderQuestion();
+});
+
+document.getElementById("btn-again").addEventListener("click", ()=>{
+  window.location.href = window.location.pathname; // сброс на чистый соло-старт
+});
+document.getElementById("btn-rematch").addEventListener("click", ()=>{
+  window.location.href = window.location.pathname;
+});
+
+async function init(){
+  await loadQuestions();
+  if (JOIN_DUEL_ID){
+    try{
+      const res = await fetch(`/api/duel/${JOIN_DUEL_ID}`);
+      if (res.ok){
+        joinedDuelInfo = await res.json();
+        document.getElementById("vs-banner").classList.remove("hidden");
+      }
+    } catch(e){ /* сеть не ответила — играем как соло */ }
+  }
+  applyI18n();
+}
+init();
+</script>
+</body>
+</html>
